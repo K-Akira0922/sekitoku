@@ -931,7 +931,7 @@ function addVirtuePoints(points, x, y) {
   const prevHundred = Math.floor((virtuePoints - points) / 100);
   const currHundred = Math.floor(virtuePoints / 100);
   if (currHundred > prevHundred) {
-    showComment(`${currHundred * 1000}徳達成`, `— ${currHundred * 1}円の方がまだ使えます`);
+    showComment(`${currHundred * 100}徳達成`, `— ${currHundred * 1}円の方がまだ使えます`);
     return;
   }
 
