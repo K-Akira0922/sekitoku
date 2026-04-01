@@ -927,11 +927,11 @@ function addVirtuePoints(points, x, y) {
   document.body.appendChild(popup);
   setTimeout(() => popup.remove(), 1000);
 
-  // Milestone every 100 points
-  const prevHundred = Math.floor((virtuePoints - points) / 100);
-  const currHundred = Math.floor(virtuePoints / 100);
-  if (currHundred > prevHundred) {
-    showComment(`${currHundred * 100}徳達成`, `— ${currHundred * 1}円の方がまだ使えます`);
+  // Milestone every 1000 points
+  const prevThousand = Math.floor((virtuePoints - points) / 1000);
+  const currThousand = Math.floor(virtuePoints / 1000);
+  if (currThousand > prevThousand) {
+    showComment(`${currThousand * 1000}徳達成`, `— ${currThousand}円の方がまだ使えます`);
     return;
   }
 
