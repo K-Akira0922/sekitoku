@@ -598,6 +598,7 @@ class Stone {
 
         if (centerOffset > slideThreshold) {
           // Slide off - give real momentum so gravity takes over naturally
+          playCollapseSE(); // instant feedback
           const slidePower = 0.3 + (1 - pairStability) * 0.5;
           top.vx += dir * centerOffset * slidePower;
           top.vy = -1; // slight upward pop so it arcs off
@@ -729,6 +730,7 @@ function selectStone(index) {
 
 // ==================== GAME START ====================
 function startGame() {
+  startBGM(); // AudioContext needs user gesture - this is it
   document.getElementById('intro').classList.add('hide');
   setTimeout(() => {
     document.getElementById('intro').style.display = 'none';
@@ -797,11 +799,13 @@ function updatePhysics() {
     const newest = stones[stones.length - 1];
     if (newest.supported && stones.length > 1 && checkStacking()) {
       pointsAwarded = true;
+      playStoneSE();
       const points = newest.type.virtue * stones.length;
       addVirtuePoints(points, newest.x, newest.y - cameraOffset);
       updateMaxHeight();
     } else if (newest.supported && stones.length === 1) {
       pointsAwarded = true;
+      playStoneSE();
       addVirtuePoints(newest.type.virtue, newest.x, newest.y - cameraOffset);
       updateMaxHeight();
     }
@@ -894,6 +898,7 @@ function checkStacking() {
 }
 
 function triggerReset() {
+  playCollapseSE();
   resetting = true;
   collapseCount++;
   document.getElementById('collapseCount').textContent = collapseCount;
@@ -944,6 +949,7 @@ function addVirtuePoints(points, x, y) {
 }
 
 function triggerCollapse() {
+  playCollapseSE();
   collapseCount++;
   document.getElementById('collapseCount').textContent = collapseCount;
   const comment = COLLAPSE_COMMENTS[Math.floor(Math.random() * COLLAPSE_COMMENTS.length)];
@@ -1024,6 +1030,206 @@ function gameLoop() {
 
 // Start
 init();
+
+// ==================== AUDIO ENGINE ====================
+let audioCtx = null;
+let bgmStarted = false;
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+// --- ZEN BGM: pentatonic ambient loop ---
+function startBGM() {
+  if (bgmStarted) return;
+  bgmStarted = true;
+  initAudio();
+
+  // Pentatonic scale notes (Japanese yo scale feel)
+  const notes = [174.61, 196.00, 220.00, 261.63, 293.66, 349.23, 392.00, 440.00];
+  const masterGain = audioCtx.createGain();
+  masterGain.gain.value = 0.08;
+  masterGain.connect(audioCtx.destination);
+
+  // Reverb via convolver approximation (filtered delay)
+  const reverbGain = audioCtx.createGain();
+  reverbGain.gain.value = 0.3;
+  const reverbDelay = audioCtx.createDelay();
+  reverbDelay.delayTime.value = 0.4;
+  const reverbFilter = audioCtx.createBiquadFilter();
+  reverbFilter.type = 'lowpass';
+  reverbFilter.frequency.value = 1200;
+  const reverbFeedback = audioCtx.createGain();
+  reverbFeedback.gain.value = 0.4;
+  reverbGain.connect(reverbDelay);
+  reverbDelay.connect(reverbFilter);
+  reverbFilter.connect(reverbFeedback);
+  reverbFeedback.connect(reverbDelay);
+  reverbFilter.connect(masterGain);
+
+  function playBell() {
+    const freq = notes[Math.floor(Math.random() * notes.length)];
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+
+    // Soft attack, long decay like a singing bowl
+    const now = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.15 + Math.random() * 0.1, now + 0.3);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 4 + Math.random() * 3);
+
+    osc.connect(gain);
+    gain.connect(masterGain);
+    gain.connect(reverbGain);
+    osc.start(now);
+    osc.stop(now + 7);
+  }
+
+  // Gentle ambient drone
+  function startDrone() {
+    const drone = audioCtx.createOscillator();
+    const droneGain = audioCtx.createGain();
+    drone.type = 'sine';
+    drone.frequency.value = 130.81; // C3
+    droneGain.gain.value = 0.03;
+    drone.connect(droneGain);
+    droneGain.connect(masterGain);
+    drone.start();
+
+    // Slow LFO on drone
+    const lfo = audioCtx.createOscillator();
+    const lfoGain = audioCtx.createGain();
+    lfo.type = 'sine';
+    lfo.frequency.value = 0.05;
+    lfoGain.gain.value = 0.015;
+    lfo.connect(lfoGain);
+    lfoGain.connect(droneGain.gain);
+    lfo.start();
+  }
+
+  startDrone();
+
+  // Random bell chimes
+  function scheduleBell() {
+    playBell();
+    const next = 2000 + Math.random() * 5000;
+    setTimeout(scheduleBell, next);
+  }
+  scheduleBell();
+
+  // Occasional second voice (octave up, quieter)
+  function scheduleHighBell() {
+    const freq = notes[Math.floor(Math.random() * notes.length)] * 2;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const now = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.04, now + 0.5);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 5);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    gain.connect(reverbGain);
+    osc.start(now);
+    osc.stop(now + 6);
+    setTimeout(scheduleHighBell, 6000 + Math.random() * 8000);
+  }
+  setTimeout(scheduleHighBell, 3000);
+}
+
+// --- STONE PLACEMENT SE: soft ceramic/stone tap ---
+function playStoneSE() {
+  if (!audioCtx) return;
+  const now = audioCtx.currentTime;
+
+  // Short noise burst filtered to sound like stone contact
+  const bufferSize = audioCtx.sampleRate * 0.08;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.15));
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'bandpass';
+  filter.frequency.value = 800 + Math.random() * 400;
+  filter.Q.value = 2;
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.25, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+  // Subtle tonal component
+  const tone = audioCtx.createOscillator();
+  const toneGain = audioCtx.createGain();
+  tone.type = 'sine';
+  tone.frequency.value = 300 + Math.random() * 200;
+  toneGain.gain.setValueAtTime(0.06, now);
+  toneGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+  tone.connect(toneGain);
+  toneGain.connect(audioCtx.destination);
+
+  noise.start(now);
+  tone.start(now);
+  tone.stop(now + 0.1);
+}
+
+// --- COLLAPSE SE: deep rumble + scatter ---
+let lastCollapseSETime = 0;
+function playCollapseSE() {
+  if (!audioCtx) return;
+  const cooldownNow = performance.now();
+  if (cooldownNow - lastCollapseSETime < 300) return;
+  lastCollapseSETime = cooldownNow;
+  const now = audioCtx.currentTime;
+
+  // Low rumble
+  const rumble = audioCtx.createOscillator();
+  const rumbleGain = audioCtx.createGain();
+  rumble.type = 'sine';
+  rumble.frequency.setValueAtTime(80, now);
+  rumble.frequency.exponentialRampToValueAtTime(30, now + 0.6);
+  rumbleGain.gain.setValueAtTime(0.2, now);
+  rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+  rumble.connect(rumbleGain);
+  rumbleGain.connect(audioCtx.destination);
+  rumble.start(now);
+  rumble.stop(now + 0.8);
+
+  // Stone scatter noise
+  const bufferSize = audioCtx.sampleRate * 0.4;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.3));
+  }
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(2000, now);
+  filter.frequency.exponentialRampToValueAtTime(200, now + 0.5);
+
+  const noiseGain = audioCtx.createGain();
+  noiseGain.gain.setValueAtTime(0.15, now);
+  noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+
+  noise.connect(filter);
+  filter.connect(noiseGain);
+  noiseGain.connect(audioCtx.destination);
+  noise.start(now);
+}
 </script>
 </body>
 </html>
