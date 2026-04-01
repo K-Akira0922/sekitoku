@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>積徳 〜AI が導く石積みの真理〜</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Zen+Antique+Soft&family=Noto+Serif+JP:wght@400;700;900&family=Shippori+Mincho:wght@400;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0f;
+    --gold: #c9a84c;
+    --gold-dim: #8a6d2b;
+    --stone-shadow: rgba(0,0,0,0.6);
+    --text: #e8e0d0;
+    --accent: #ff6b4a;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Shippori Mincho', serif;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Background atmosphere */
+  .bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+  }
+  .bg-layer::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 120% 60% at 50% 100%, rgba(40,30,15,0.8), transparent),
+      radial-gradient(ellipse 80% 40% at 20% 0%, rgba(20,15,40,0.6), transparent),
+      radial-gradient(ellipse 60% 50% at 80% 20%, rgba(15,20,35,0.5), transparent);
+  }
+  .bg-layer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    opacity: 0.4;
+  }
+
+  /* Header */
+  .header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    text-align: center;
+    padding: 12px 20px 8px;
+    background: linear-gradient(to bottom, rgba(10,10,15,0.95), transparent);
+  }
+  .header h1 {
+    font-family: 'Noto Serif JP', serif;
+    font-weight: 900;
+    font-size: 1.4rem;
+    color: var(--gold);
+    letter-spacing: 0.3em;
+    text-shadow: 0 0 30px rgba(201,168,76,0.3);
+  }
+  .header .subtitle {
+    font-size: 0.65rem;
+    color: var(--gold-dim);
+    letter-spacing: 0.15em;
+    margin-top: 2px;
+  }
+
+  /* Virtue points display */
+  .virtue-panel {
+    position: fixed;
+    top: 70px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 100;
+    text-align: center;
+  }
+  .virtue-label {
+    font-size: 0.6rem;
+    color: var(--gold-dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .virtue-points {
+    font-family: 'Noto Serif JP', serif;
+    font-weight: 900;
+    font-size: 2.2rem;
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(201,168,76,0.4);
+    line-height: 1;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .virtue-points.bump {
+    transform: scale(1.3);
+  }
+  .virtue-unit {
+    font-size: 0.55rem;
+    color: var(--gold-dim);
+    letter-spacing: 0.1em;
+  }
+  .virtue-note {
+    font-size: 0.5rem;
+    color: rgba(201,168,76,0.3);
+    margin-top: 2px;
+  }
+
+  /* Stone selector */
+  .stone-selector {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 100;
+    padding: 10px 10px 16px;
+    background: linear-gradient(to top, rgba(10,10,15,0.97), rgba(10,10,15,0.8), transparent);
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    align-items: flex-end;
+  }
+  .stone-option {
+    width: 56px; height: 56px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 2px solid rgba(201,168,76,0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+    background: rgba(20,18,25,0.8);
+    position: relative;
+  }
+  .stone-option:hover, .stone-option.selected {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(201,168,76,0.2);
+    transform: translateY(-3px);
+  }
+  .stone-option .stone-name {
+    position: absolute;
+    bottom: -16px;
+    font-size: 0.45rem;
+    color: var(--gold-dim);
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+  }
+
+  /* Canvas */
+  #gameCanvas {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    cursor: pointer;
+  }
+
+  /* Comment overlay */
+  .comment-overlay {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 200;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+  .comment-overlay.show {
+    opacity: 1;
+  }
+  .comment-text {
+    font-family: 'Noto Serif JP', serif;
+    font-weight: 700;
+    font-size: 1.3rem;
+    color: var(--accent);
+    text-shadow: 0 2px 20px rgba(255,107,74,0.5), 0 0 60px rgba(255,107,74,0.2);
+    line-height: 1.6;
+    max-width: 320px;
+  }
+  .comment-sub {
+    font-size: 0.6rem;
+    color: rgba(255,107,74,0.5);
+    margin-top: 8px;
+    letter-spacing: 0.1em;
+  }
+  .comment-attr {
+    font-size: 0.55rem;
+    color: rgba(201,168,76,0.6);
+    margin-top: 10px;
+    letter-spacing: 0.08em;
+  }
+
+  /* Point gain popup */
+  .point-popup {
+    position: fixed;
+    z-index: 150;
+    font-family: 'Noto Serif JP', serif;
+    font-weight: 700;
+    color: var(--gold);
+    font-size: 1rem;
+    pointer-events: none;
+    animation: floatUp 0.9s ease-out forwards;
+    text-shadow: 0 0 15px rgba(201,168,76,0.5);
+  }
+  @keyframes floatUp {
+    0% { opacity: 1; transform: translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateY(-80px) scale(0.6); }
+  }
+
+  /* Intro screen */
+  .intro {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    transition: opacity 0.8s ease;
+  }
+  .intro.hide {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .intro h1 {
+    font-family: 'Noto Serif JP', serif;
+    font-weight: 900;
+    font-size: 2.5rem;
+    color: var(--gold);
+    letter-spacing: 0.4em;
+    text-shadow: 0 0 60px rgba(201,168,76,0.3);
+    margin-bottom: 16px;
+  }
+  .intro .kana {
+    font-size: 0.7rem;
+    color: var(--gold-dim);
+    letter-spacing: 0.5em;
+    margin-bottom: 30px;
+  }
+  .intro .lore {
+    font-size: 0.8rem;
+    color: rgba(232,224,208,0.6);
+    max-width: 400px;
+    line-height: 2;
+    margin-bottom: 40px;
+  }
+  .intro .lore em {
+    color: var(--gold);
+    font-style: normal;
+  }
+  .start-btn {
+    font-family: 'Noto Serif JP', serif;
+    font-size: 0.9rem;
+    color: var(--gold);
+    background: transparent;
+    border: 1px solid var(--gold-dim);
+    padding: 12px 48px;
+    cursor: pointer;
+    letter-spacing: 0.3em;
+    transition: all 0.3s ease;
+  }
+  .start-btn:hover {
+    background: rgba(201,168,76,0.1);
+    border-color: var(--gold);
+    box-shadow: 0 0 30px rgba(201,168,76,0.15);
+  }
+
+  /* Height marker */
+  .height-marker {
+    position: fixed;
+    right: 12px;
+    z-index: 90;
+    font-size: 0.5rem;
+    color: var(--gold-dim);
+    letter-spacing: 0.05em;
+    opacity: 0.5;
+  }
+
+  /* Stats */
+  .stats {
+    position: fixed;
+    top: 70px; right: 12px;
+    z-index: 100;
+    text-align: right;
+    font-size: 0.5rem;
+    color: rgba(201,168,76,0.4);
+    letter-spacing: 0.05em;
+    line-height: 1.8;
+  }
+
+  /* Instruction hint */
+  .hint {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 90;
+    font-size: 0.55rem;
+    color: rgba(232,224,208,0.25);
+    letter-spacing: 0.1em;
+    animation: pulse 3s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Mobile adjustments */
+  @media (max-width: 600px) {
+    .intro h1 { font-size: 1.8rem; }
+    .intro .lore { font-size: 0.7rem; }
+    .virtue-points { font-size: 1.8rem; }
+    .comment-text { font-size: 1rem; max-width: 260px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Intro Screen -->
+<div class="intro" id="intro">
+  <h1>積 徳</h1>
+  <div class="kana">せ き と く</div>
+  <div class="lore">
+    最新のAI演算により、人類の幸福は<br>
+    労働でも生産でもなく<br>
+    <em>競わず、比べず、石を積むこと</em>にあると<br>
+    判明いたしました。<br><br>
+    石を積み、徳を得よ。<br>
+    ただし徳は何とも交換できません。
+  </div>
+  <button class="start-btn" onclick="startGame()">悟りを開く</button>
+</div>
+
+<div class="bg-layer"></div>
+
+<!-- Header -->
+<div class="header" id="header" style="display:none;">
+  <h1>積 徳</h1>
+  <div class="subtitle">〜 AI が導く石積みの真理 〜</div>
+</div>
+
+<!-- Virtue Points -->
+<div class="virtue-panel" id="virtuePanel" style="display:none;">
+  <div class="virtue-label">徳ポイント</div>
+  <div class="virtue-points" id="virtuePoints">0</div>
+  <div class="virtue-unit">TOKU</div>
+  <div class="virtue-note">※ 何とも交換できません</div>
+</div>
+
+<!-- Stats -->
+<div class="stats" id="stats" style="display:none;">
+  <div>最高段数: <span id="maxHeight">0</span></div>
+  <div>崩壊回数: <span id="collapseCount">0</span></div>
+  <div>総石数: <span id="totalStones">0</span></div>
+</div>
+
+<!-- Game Canvas -->
+<canvas id="gameCanvas"></canvas>
+
+<!-- Comment Overlay -->
+<div class="comment-overlay" id="commentOverlay">
+  <div class="comment-text" id="commentText"></div>
+  <div class="comment-attr" id="commentAttr"></div>
+  <div class="comment-sub" id="commentSub"></div>
+</div>
+
+<!-- Hint -->
+<div class="hint" id="hint" style="display:none;">画面をタップして石を積む</div>
+
+<!-- Stone Selector -->
+<div class="stone-selector" id="stoneSelector" style="display:none;">
+</div>
+
+<script>
+// ==================== GAME CONFIG ====================
+const GRAVITY = 0.35;
+const FRICTION = 0.4;
+const BOUNCE = 0.12;
+const STABILITY_THRESHOLD = 0.25;
+const COLLAPSE_VELOCITY = 3;
+const BASE_Y_OFFSET = 80; // from bottom
+const DAMPING = 0.96;     // less damping = momentum carries longer
+
+// Stone types - stability: how forgiving the contact surface is (0-1, lower = harder)
+const STONE_TYPES = [
+  { name: '河原石', w: 60, h: 24, color: '#7a7568', highlight: '#968e7d', shadow: '#4a4540', stability: 0.65, virtue: 1 },
+  { name: '玄武岩', w: 75, h: 18, color: '#3d3d4a', highlight: '#5a5a6a', shadow: '#252530', stability: 0.80, virtue: 2 },
+  { name: '花崗岩', w: 46, h: 34, color: '#9a8e80', highlight: '#bab0a0', shadow: '#6a6055', stability: 0.40, virtue: 3 },
+  { name: '翡翠',   w: 34, h: 34, color: '#4a7a5a', highlight: '#6a9a7a', shadow: '#2a4a3a', stability: 0.22, virtue: 5 },
+  { name: '隕石',   w: 38, h: 38, color: '#5a4555', highlight: '#7a6575', shadow: '#3a2535', stability: 0.12, virtue: 8 },
+];
+
+// Sarcastic collapse comments - original quotes with stone-stacking roast
+const COLLAPSE_COMMENTS = [
+  { text: "ゆく河の流れは\n絶えずして", attr: "— 鴨長明『方丈記』", sub: "あなたの石も絶えず崩れますね" },
+  { text: "石の上にも三年", attr: "— ことわざ", sub: "三秒すら持たなかった件について" },
+  { text: "つれづれなるままに", attr: "— 兼好法師『徒然草』", sub: "よくもまあ飽きずに崩しますね" },
+  { text: "我思う\nゆえに我あり", attr: "— デカルト", sub: "いくら思っても石は積み上がりませんよ" },
+  { text: "祇園精舎の\n鐘の声", attr: "— 『平家物語』", sub: "今の崩壊音も十分響いてましたよ" },
+  { text: "月日は百代の\n過客にして", attr: "— 松尾芭蕉『奥の細道』", sub: "あなたの石も一瞬の過客でしたね" },
+  { text: "春はあけぼの", attr: "— 清少納言『枕草子』", sub: "あなたの石積みに夜明けは来ません" },
+  { text: "それでも\n地球は回っている", attr: "— ガリレオ・ガリレイ", sub: "それでもあなたの石は落ち続けている" },
+  { text: "少年よ\n大志を抱け", attr: "— クラーク博士", sub: "まさか石積みが大志だとは思ってなかったでしょうに" },
+  { text: "賽の河原", attr: "— 仏教説話", sub: "鬼が来る前に自分で崩してどうするんですか" },
+  { text: "為せば成る\n為さねば成らぬ", attr: "— 上杉鷹山", sub: "為しても成らない場合の教えは残ってません" },
+  { text: "知る者は言わず\n言う者は知らず", attr: "— 老子", sub: "この崩れ方を見たら老子も絶句ですよ" },
+  { text: "ブルータス\nお前もか", attr: "— シェイクスピア", sub: "裏切ったのは石のほうでしたね" },
+  { text: "諸行無常", attr: "— 釈迦", sub: "悟りではなく崩壊で無常を体感してますね" },
+  { text: "人間万事\n塞翁が馬", attr: "— 『淮南子』", sub: "馬は来ません。来たのは崩壊だけです" },
+  { text: "初心忘るべからず", attr: "— 世阿弥", sub: "初心からずっとこの調子じゃ忘れようがない" },
+  { text: "継続は力なり", attr: "— ことわざ", sub: "崩壊を継続する才能は認めます" },
+  { text: "一期一会", attr: "— 千利休", sub: "石との出会いと別れが秒で終わりましたね" },
+  { text: "吾輩は猫である\n名前はまだ無い", attr: "— 夏目漱石", sub: "あなたの石も名前がつく前に落ちました" },
+  { text: "敵を知り\n己を知れば", attr: "— 孫子", sub: "石を知らず己も知らず、全戦全敗ですね" },
+];
+
+// Success comments (shown every 5th successful stack)
+const SUCCESS_COMMENTS = [
+  { text: "まぐれですね", sub: "— 統計的にはそう判断します" },
+  { text: "悪くないです", sub: "— 褒めてはいません" },
+  { text: "石が喜んでいます", sub: "— たぶん" },
+  { text: "その調子です", sub: "— 何の調子かは不明ですが" },
+  { text: "少し見直しました", sub: "— ほんの少しだけ" },
+  { text: "継続は力です", sub: "— 無意味な力ですが" },
+  { text: "集中していますね", sub: "— 他にやることは？" },
+  { text: "成長を感じます", sub: "— 石積みの成長に意味があれば" },
+];
+
+// ==================== GAME STATE ====================
+let canvas, ctx;
+let stones = [];
+let selectedStoneType = 0;
+let virtuePoints = 0;
+let maxHeight = 0;
+let collapseCount = 0;
+let totalStones = 0;
+let stackCount = 0; // successful stacks for comment frequency
+let gameStarted = false;
+let dropping = false;
+let dropStone = null;
+let settled = true;
+let resetting = false;
+let lastCommentTime = 0;
+let groundY;
+let cameraOffset = 0;
+let targetCameraOffset = 0;
+
+// ==================== STONE CLASS ====================
+class Stone {
+  constructor(type, x, y) {
+    this.type = type;
+    this.x = x;
+    this.y = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.rotation = (Math.random() - 0.5) * 0.05;
+    this.vr = 0;
+    this.w = type.w + (Math.random() - 0.5) * 6;
+    this.h = type.h + (Math.random() - 0.5) * 3;
+    this.settled = false;
+    this.settleTimer = 0;
+    this.supported = false; // true when resting on ground or another stone
+    this.fallen = false;
+    this.opacity = 1;
+    this.roughness = [];
+    // Generate roughness for natural look
+    const points = 12;
+    for (let i = 0; i < points; i++) {
+      this.roughness.push(0.85 + Math.random() * 0.3);
+    }
+  }
+
+  get left() { return this.x - this.w / 2; }
+  get right() { return this.x + this.w / 2; }
+  get top() { return this.y - this.h / 2; }
+  get bottom() { return this.y + this.h / 2; }
+
+  update() {
+    if (this.settled) return;
+
+    this.supported = false; // reset each frame, set by collideWith
+
+    this.vy += GRAVITY;
+    this.vx *= DAMPING;
+    this.vr *= 0.94;
+
+    this.x += this.vx;
+    this.y += this.vy;
+    this.rotation += this.vr;
+
+    if (Math.abs(this.rotation) < 0.02) this.rotation *= 0.5;
+
+    // Ground collision
+    if (this.bottom > groundY) {
+      this.y = groundY - this.h / 2;
+      this.vy = 0;
+      this.vx *= FRICTION;
+      this.vr *= 0.3;
+      if (Math.abs(this.vx) < 0.2) this.vx = 0;
+      this.supported = true;
+    }
+
+    // Wall collision - only near ground, otherwise let stones fly off
+    const nearGround = this.bottom > groundY - 10;
+    if (nearGround) {
+      if (this.left < 0) {
+        this.x = this.w / 2;
+        this.vx = 0; this.vr = 0; this.rotation = 0;
+      }
+      if (this.right > canvas.width) {
+        this.x = canvas.width - this.w / 2;
+        this.vx = 0; this.vr = 0; this.rotation = 0;
+      }
+    }
+
+    // Settle check: use vx and vr only (ignore vy when supported)
+    const effectiveVy = this.supported ? 0 : this.vy;
+    if (Math.abs(this.vx) < STABILITY_THRESHOLD &&
+        Math.abs(effectiveVy) < STABILITY_THRESHOLD &&
+        Math.abs(this.vr) < 0.03) {
+      this.settleTimer++;
+      if (this.settleTimer > 8) {
+        this.settled = true;
+        this.vx = 0; this.vy = 0; this.vr = 0;
+      }
+    } else {
+      this.settleTimer = 0;
+    }
+
+    // Fallen off screen
+    if (this.y > groundY + 200 || this.x < -100 || this.x > canvas.width + 100) {
+      this.fallen = true;
+    }
+  }
+
+  collideWith(other) {
+    const dx = this.x - other.x;
+    const dy = this.y - other.y;
+    const overlapX = (this.w + other.w) / 2 - Math.abs(dx);
+    const overlapY = (this.h + other.h) / 2 - Math.abs(dy);
+
+    if (overlapX > 0 && overlapY > 0) {
+      const minW = Math.min(this.w, other.w);
+      const contactRatio = overlapX / minW;
+      const pairStability = (this.type.stability + other.type.stability) / 2;
+
+      if (overlapX < overlapY) {
+        // Horizontal separation
+        const sign = dx > 0 ? 1 : -1;
+        const pushRatio = other.settled ? 1 : 0.5;
+        this.x += overlapX * sign * pushRatio;
+        if (!other.settled) other.x -= overlapX * sign * (1 - pushRatio);
+        this.vx += sign * 0.5;
+        this.vr += sign * 0.01;
+        if (Math.abs(this.vx - other.vx) > 2) {
+          other.settled = false;
+          other.vx += sign * 0.2;
+        }
+      } else {
+        // Vertical stacking case
+        const sign = dy > 0 ? 1 : -1;
+        const top = sign < 0 ? this : other;
+        const bottom = sign < 0 ? other : this;
+        const topDx = top.x - bottom.x;
+        const dir = topDx > 0 ? 1 : -1;
+
+        // Place top stone on bottom
+        top.y = bottom.top - top.h / 2;
+        top.supported = true;
+
+        // Impact only on real landing (high vy), not resting contact
+        const landingVy = Math.abs(top.vy);
+        top.vy = 0;
+
+        if (landingVy > 2) {
+          const impactForce = landingVy * 0.06 * (1 - pairStability);
+          bottom.settled = false;
+          bottom.vx += (Math.random() - 0.5) * impactForce;
+          bottom.vr += (Math.random() - 0.5) * impactForce * 0.03;
+        }
+
+        // How far off-center
+        const centerOffset = Math.abs(topDx) / (bottom.w * 0.5);
+
+        // Slide-off threshold
+        const slideThreshold = 0.25 + pairStability * 0.5;
+
+        // Wobble from small contact area
+        const wobbleFactor = (1 - contactRatio) * (1 - pairStability);
+
+        if (centerOffset > slideThreshold) {
+          // Slide off - give real momentum so gravity takes over naturally
+          const slidePower = 0.3 + (1 - pairStability) * 0.5;
+          top.vx += dir * centerOffset * slidePower;
+          top.vy = -1; // slight upward pop so it arcs off
+          top.vr += dir * 0.02;
+          top.supported = false; // let gravity take it
+          top.settled = false;
+          top.settleTimer = 0;
+          // Chain reaction
+          bottom.settled = false;
+          bottom.settleTimer = 0;
+          bottom.vx += -dir * 0.2 * (1 - pairStability);
+          bottom.vr += -dir * 0.005;
+        } else if (wobbleFactor > 0.1 && !top.settled) {
+          // Contact area wobble - only while stone is still moving
+          top.vx += dir * wobbleFactor * 0.1;
+          top.vr += dir * wobbleFactor * 0.003;
+          top.vx *= 0.8;
+        } else {
+          // Resting contact - dampen
+          top.vx *= 0.35;
+          top.vr *= 0.35;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.rotate(this.rotation);
+    ctx.globalAlpha = this.opacity;
+
+    // Draw stone shape
+    ctx.beginPath();
+    const points = this.roughness.length;
+    for (let i = 0; i <= points; i++) {
+      const angle = (i / points) * Math.PI * 2 - Math.PI / 2;
+      const r = this.roughness[i % points];
+      const rx = (this.w / 2) * r;
+      const ry = (this.h / 2) * r;
+      const px = Math.cos(angle) * rx;
+      const py = Math.sin(angle) * ry;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+
+    // Fill with gradient
+    const grad = ctx.createLinearGradient(-this.w/2, -this.h/2, this.w/2, this.h/2);
+    grad.addColorStop(0, this.type.highlight);
+    grad.addColorStop(0.5, this.type.color);
+    grad.addColorStop(1, this.type.shadow);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Stone texture dots
+    ctx.fillStyle = this.type.shadow;
+    ctx.globalAlpha *= 0.3;
+    for (let i = 0; i < 5; i++) {
+      const tx = (Math.random() - 0.5) * this.w * 0.6;
+      const ty = (Math.random() - 0.5) * this.h * 0.6;
+      ctx.beginPath();
+      ctx.arc(tx, ty, 1 + Math.random() * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+}
+
+// ==================== INIT ====================
+function init() {
+  canvas = document.getElementById('gameCanvas');
+  ctx = canvas.getContext('2d');
+  resize();
+  window.addEventListener('resize', resize);
+  canvas.addEventListener('click', handleClick);
+  canvas.addEventListener('touchend', handleTouch, { passive: false });
+  buildStoneSelector();
+  requestAnimationFrame(gameLoop);
+}
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  groundY = canvas.height - BASE_Y_OFFSET;
+}
+
+function buildStoneSelector() {
+  const sel = document.getElementById('stoneSelector');
+  sel.innerHTML = '';
+  STONE_TYPES.forEach((type, i) => {
+    const div = document.createElement('div');
+    div.className = 'stone-option' + (i === 0 ? ' selected' : '');
+    div.onclick = () => selectStone(i);
+
+    // Mini stone preview
+    const c = document.createElement('canvas');
+    c.width = 44; c.height = 44;
+    const cx = c.getContext('2d');
+    cx.translate(22, 22);
+    cx.beginPath();
+    cx.ellipse(0, 0, type.w * 0.3, type.h * 0.3, 0, 0, Math.PI * 2);
+    const g = cx.createLinearGradient(-10, -10, 10, 10);
+    g.addColorStop(0, type.highlight);
+    g.addColorStop(1, type.shadow);
+    cx.fillStyle = g;
+    cx.fill();
+    div.appendChild(c);
+
+    const name = document.createElement('div');
+    name.className = 'stone-name';
+    const difficulty = type.stability >= 0.7 ? '★' : type.stability >= 0.4 ? '★★' : '★★★';
+    name.textContent = type.name + ' +' + type.virtue + ' ' + difficulty;
+    div.appendChild(name);
+
+    sel.appendChild(div);
+  });
+}
+
+function selectStone(index) {
+  selectedStoneType = index;
+  document.querySelectorAll('.stone-option').forEach((el, i) => {
+    el.classList.toggle('selected', i === index);
+  });
+}
+
+// ==================== GAME START ====================
+function startGame() {
+  document.getElementById('intro').classList.add('hide');
+  setTimeout(() => {
+    document.getElementById('intro').style.display = 'none';
+    document.getElementById('header').style.display = '';
+    document.getElementById('virtuePanel').style.display = '';
+    document.getElementById('stoneSelector').style.display = '';
+    document.getElementById('stats').style.display = '';
+    document.getElementById('hint').style.display = '';
+    gameStarted = true;
+  }, 400);
+}
+
+// ==================== INPUT ====================
+function handleTouch(e) {
+  e.preventDefault();
+  if (!gameStarted || !settled || resetting) return;
+  const touch = e.changedTouches[0];
+  dropNewStone(touch.clientX);
+}
+
+function handleClick(e) {
+  if (!gameStarted || !settled || resetting) return;
+  dropNewStone(e.clientX);
+}
+
+function dropNewStone(x) {
+  if (dropping) return;
+  dropping = true;
+  settled = false;
+  pointsAwarded = false;
+  physicsFrames = 0;
+
+  const type = STONE_TYPES[selectedStoneType];
+  // Find the highest stone to drop from just above the stack
+  let highestY = groundY;
+  stones.forEach(s => {
+    if (s.top < highestY) highestY = s.top;
+  });
+  const dropY = Math.min(highestY - 80, groundY - 200);
+  const stone = new Stone(type, x, dropY + cameraOffset);
+  stones.push(stone);
+  totalStones++;
+  document.getElementById('totalStones').textContent = totalStones;
+  document.getElementById('hint').style.display = 'none';
+}
+
+// ==================== PHYSICS ====================
+let pointsAwarded = false;
+let physicsFrames = 0; // safety counter
+
+function updatePhysics() {
+  for (let i = 0; i < stones.length; i++) {
+    stones[i].update();
+  }
+
+  // Collisions
+  for (let i = 0; i < stones.length; i++) {
+    for (let j = i + 1; j < stones.length; j++) {
+      if (stones[i].fallen || stones[j].fallen) continue;
+      stones[i].collideWith(stones[j]);
+    }
+  }
+
+  // Instant point award: as soon as newest stone first contacts stack
+  if (dropping && !pointsAwarded && !resetting && stones.length > 0) {
+    const newest = stones[stones.length - 1];
+    if (newest.supported && stones.length > 1 && checkStacking()) {
+      pointsAwarded = true;
+      const points = newest.type.virtue * stones.length;
+      addVirtuePoints(points, newest.x, newest.y - cameraOffset);
+      updateMaxHeight();
+    } else if (newest.supported && stones.length === 1) {
+      pointsAwarded = true;
+      addVirtuePoints(newest.type.virtue, newest.x, newest.y - cameraOffset);
+      updateMaxHeight();
+    }
+  }
+
+  // Re-check movement AFTER collisions
+  let anyMoving = false;
+  for (let i = 0; i < stones.length; i++) {
+    if (!stones[i].settled && !stones[i].fallen) anyMoving = true;
+  }
+
+  // Safety timeout
+  if (dropping) physicsFrames++;
+  if (physicsFrames > 180) {
+    stones.forEach(s => {
+      s.settled = true;
+      s.vx = 0; s.vy = 0; s.vr = 0;
+    });
+    anyMoving = false;
+    physicsFrames = 0;
+  }
+
+  // Remove fallen stones
+  const beforeCount = stones.length;
+  stones = stones.filter(s => !s.fallen);
+  const removedCount = beforeCount - stones.length;
+
+  if (removedCount > 0 && beforeCount > 1) {
+    triggerCollapse();
+  }
+
+  // On full settle: ALWAYS validate the stack
+  if (!anyMoving && stones.length > 0 && !resetting && dropping) {
+    dropping = false;
+    settled = true;
+
+    // Final validation - did the stone actually end up stacked?
+    if (stones.length > 1 && !checkStacking()) {
+      triggerReset();
+    }
+  } else if (stones.length === 0 && dropping) {
+    dropping = false;
+    settled = true;
+  }
+
+  // Camera follow
+  let highestY = groundY;
+  stones.forEach(s => {
+    if (s.top < highestY) highestY = s.top;
+  });
+  const targetView = Math.max(0, groundY - highestY - canvas.height * 0.5);
+  targetCameraOffset = targetView > 50 ? targetView : 0;
+  cameraOffset += (targetCameraOffset - cameraOffset) * 0.05;
+}
+
+// ==================== STACKING VALIDATION ====================
+function checkStacking() {
+  if (stones.length <= 1) return true;
+
+  const newest = stones[stones.length - 1];
+
+  // If newest stone is on the ground, it's not stacked (2-column problem)
+  if (Math.abs(newest.bottom - groundY) < 8) return false;
+
+  // All stones must form a single tower - check that every stone
+  // is horizontally close to its neighbors (no separate columns)
+  // Sort by Y (top to bottom)
+  const sorted = [...stones].sort((a, b) => a.y - b.y);
+  for (let i = 1; i < sorted.length; i++) {
+    const above = sorted[i - 1];
+    const below = sorted[i];
+    const dx = Math.abs(above.x - below.x);
+    const maxDist = (above.w + below.w) * 0.5;
+    if (dx > maxDist) return false; // gap = two separate columns
+  }
+
+  // Newest must be resting on top of another stone
+  for (let i = 0; i < stones.length - 1; i++) {
+    const other = stones[i];
+    const dx = Math.abs(newest.x - other.x);
+    const horizontalOverlap = (newest.w + other.w) * 0.45;
+    const gap = newest.bottom - other.top;
+
+    if (dx < horizontalOverlap && gap >= -10 && gap <= 18) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function triggerReset() {
+  resetting = true;
+  collapseCount++;
+  document.getElementById('collapseCount').textContent = collapseCount;
+  const comment = COLLAPSE_COMMENTS[Math.floor(Math.random() * COLLAPSE_COMMENTS.length)];
+  showComment(comment.text, comment.sub, 2800, comment.attr);
+
+  setTimeout(() => {
+    stones = [];
+    cameraOffset = 0;
+    targetCameraOffset = 0;
+    dropping = false;
+    settled = true;
+    resetting = false;
+  }, 1200);
+}
+
+// ==================== EVENTS ====================
+function addVirtuePoints(points, x, y) {
+  virtuePoints += points;
+  const el = document.getElementById('virtuePoints');
+  el.textContent = virtuePoints;
+  el.classList.add('bump');
+  setTimeout(() => el.classList.remove('bump'), 200);
+
+  // Floating popup
+  const popup = document.createElement('div');
+  popup.className = 'point-popup';
+  popup.textContent = `+${points} 徳`;
+  popup.style.left = x + 'px';
+  popup.style.top = y + 'px';
+  document.body.appendChild(popup);
+  setTimeout(() => popup.remove(), 1000);
+
+  // Milestone every 100 points
+  const prevHundred = Math.floor((virtuePoints - points) / 100);
+  const currHundred = Math.floor(virtuePoints / 100);
+  if (currHundred > prevHundred) {
+    showComment(`${currHundred * 100}徳達成`, `— ${currHundred * 100}円の方がまだ使えます`);
+    return;
+  }
+
+  // Success comment every 5th successful stack
+  stackCount++;
+  if (stackCount % 5 === 0) {
+    const comment = SUCCESS_COMMENTS[Math.floor(Math.random() * SUCCESS_COMMENTS.length)];
+    showComment(comment.text, comment.sub);
+  }
+}
+
+function triggerCollapse() {
+  collapseCount++;
+  document.getElementById('collapseCount').textContent = collapseCount;
+  const comment = COLLAPSE_COMMENTS[Math.floor(Math.random() * COLLAPSE_COMMENTS.length)];
+  showComment(comment.text, comment.sub, 2800, comment.attr);
+}
+
+function showComment(text, sub, duration, attr) {
+  duration = duration || 1800;
+  const now = Date.now();
+  if (now - lastCommentTime < 800) return;
+  lastCommentTime = now;
+
+  const overlay = document.getElementById('commentOverlay');
+  document.getElementById('commentText').textContent = text;
+  document.getElementById('commentAttr').textContent = attr || '';
+  document.getElementById('commentSub').textContent = sub;
+  overlay.classList.remove('show');
+  void overlay.offsetWidth;
+  overlay.classList.add('show');
+  setTimeout(() => overlay.classList.remove('show'), duration);
+}
+
+function updateMaxHeight() {
+  const currentHeight = stones.length;
+  if (currentHeight > maxHeight) {
+    maxHeight = currentHeight;
+    document.getElementById('maxHeight').textContent = maxHeight;
+  }
+}
+
+// ==================== RENDER ====================
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(0, cameraOffset);
+
+  // Ground
+  const gGrad = ctx.createLinearGradient(0, groundY - 2, 0, groundY + 40);
+  gGrad.addColorStop(0, 'rgba(60,50,35,0.8)');
+  gGrad.addColorStop(0.3, 'rgba(40,33,22,0.6)');
+  gGrad.addColorStop(1, 'transparent');
+  ctx.fillStyle = gGrad;
+  ctx.fillRect(0, groundY - 2, canvas.width, 60);
+
+  // Ground line
+  ctx.strokeStyle = 'rgba(201,168,76,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(canvas.width, groundY);
+  ctx.stroke();
+
+  // Draw stones
+  stones.forEach(stone => stone.draw(ctx));
+
+  // Drop preview
+  if (gameStarted && settled && !dropping) {
+    ctx.strokeStyle = 'rgba(201,168,76,0.15)';
+    ctx.setLineDash([4, 8]);
+    ctx.beginPath();
+    ctx.moveTo(canvas.width / 2, -cameraOffset);
+    ctx.lineTo(canvas.width / 2, groundY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+}
+
+// ==================== GAME LOOP ====================
+function gameLoop() {
+  if (gameStarted) {
+    updatePhysics();
+  }
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// Start
+init();
+</script>
+</body>
+</html>
